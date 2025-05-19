@@ -1,4 +1,3 @@
-!pip install tensorflow
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -470,5 +469,168 @@ def salvar_modelo_e_artefatos(modelo, dados_preparados, resultados_avaliacao):
     parametros = {
         'janela': dados_preparados['janela'],
         'previsao_dias': dados_preparados['previsao_dias'],
-        'features': dados_preparados['features']}
-#(Content truncated due to size limit. Use line ranges to read in chunks)
+        'features': dados_preparados['features'],
+        'metricas': {
+            'rmse_geral': resultados_avaliacao['rmse_geral'],
+            'mae_geral': resultados_avaliacao['mae_geral'],
+            'mape_geral': resultados_avaliacao['mape_geral'],
+            'r2_geral': resultados_avaliacao['r2_geral']
+        }
+    }
+    
+    joblib.dump(parametros, os.path.join(modelo_dir, 'parametros.pkl'))
+    
+    # Salvar as métricas em CSV
+    resultados_avaliacao['metricas'].to_csv(os.path.join(modelo_dir, 'metricas_por_horizonte.csv'), index=False)
+    
+    print(f"Modelo e artefatos salvos no diretório: {modelo_dir}")
+
+def criar_documentacao_modelo(dados_preparados, resultados_avaliacao):
+    """
+    Cria documentação sobre o modelo e seus resultados.
+    
+    Args:
+        dados_preparados: Dados preparados para o modelo.
+        resultados_avaliacao: Resultados da avaliação do modelo.
+    """
+    print("=== Criando Documentação do Modelo ===")
+    
+    # Criar diretório para a documentação
+    docs_dir = os.path.join(os.getcwd(), 'documentacao')
+    os.makedirs(docs_dir, exist_ok=True)
+    
+    # Criar arquivo de documentação
+    doc_path = os.path.join(docs_dir, 'documentacao_modelo.md')
+    
+    with open(doc_path, 'w') as f:
+        f.write("# Documentação do Modelo de Previsão do Preço do Petróleo Brent\n\n")
+        
+        f.write("## Visão Geral\n\n")
+        f.write("Este documento descreve o modelo de Machine Learning desenvolvido para prever o preço diário do petróleo Brent.\n\n")
+        
+        f.write("## Arquitetura do Modelo\n\n")
+        f.write("O modelo utiliza uma arquitetura de Rede Neural Recorrente (RNN) do tipo LSTM (Long Short-Term Memory), ")
+        f.write("que é especialmente adequada para previsão de séries temporais devido à sua capacidade de capturar dependências de longo prazo nos dados.\n\n")
+        
+        f.write("### Estrutura da Rede\n\n")
+        f.write("- Camada LSTM 1: 100 unidades, com retorno de sequências\n")
+        f.write("- Camada Dropout 1: 20% para evitar overfitting\n")
+        f.write("- Camada LSTM 2: 50 unidades\n")
+        f.write("- Camada Dropout 2: 20% para evitar overfitting\n")
+        f.write(f"- Camada Dense (saída): {dados_preparados['previsao_dias']} unidades (uma para cada dia de previsão)\n\n")
+        
+        f.write("### Parâmetros do Modelo\n\n")
+        f.write(f"- Janela de entrada: {dados_preparados['janela']} dias\n")
+        f.write(f"- Horizonte de previsão: {dados_preparados['previsao_dias']} dias\n")
+        f.write(f"- Features utilizadas: {', '.join(dados_preparados['features'])}\n")
+        f.write("- Função de perda: Erro Quadrático Médio (MSE)\n")
+        f.write("- Otimizador: Adam\n\n")
+        
+        f.write("## Preparação dos Dados\n\n")
+        f.write("### Pré-processamento\n\n")
+        f.write("- Normalização das features usando MinMaxScaler\n")
+        f.write("- Criação de features cíclicas para dia da semana, mês e trimestre\n")
+        f.write("- Adição de feature de tendência\n")
+        f.write("- Criação de sequências de entrada com janela deslizante\n\n")
+        
+        f.write("### Divisão dos Dados\n\n")
+        f.write(f"- Conjunto de treinamento: {len(dados_preparados['X_train'])} amostras\n")
+        f.write(f"- Conjunto de teste: {len(dados_preparados['X_test'])} amostras\n\n")
+        
+        f.write("## Desempenho do Modelo\n\n")
+        f.write("### Métricas Gerais\n\n")
+        f.write(f"- RMSE (Erro Quadrático Médio): ${resultados_avaliacao['rmse_geral']:.2f}\n")
+        f.write(f"- MAE (Erro Absoluto Médio): ${resultados_avaliacao['mae_geral']:.2f}\n")
+        f.write(f"- MAPE (Erro Percentual Absoluto Médio): {resultados_avaliacao['mape_geral']:.2f}%\n")
+        f.write(f"- R² (Coeficiente de Determinação): {resultados_avaliacao['r2_geral']:.4f}\n\n")
+        
+        f.write("### Métricas por Horizonte de Previsão\n\n")
+        f.write("O modelo apresenta desempenho variado dependendo do horizonte de previsão. ")
+        f.write("Como esperado, a precisão diminui à medida que o horizonte de previsão aumenta.\n\n")
+        
+        f.write("#### Horizontes Selecionados:\n\n")
+        
+        # Selecionar alguns horizontes para destacar
+        horizontes = [0, 6, 13, 29]  # 1 dia, 1 semana, 2 semanas, 1 mês
+        
+        for h in horizontes:
+            metrica = resultados_avaliacao['metricas'].iloc[h]
+            f.write(f"**Horizonte {h+1} dias:**\n")
+            f.write(f"- RMSE: ${metrica['RMSE']:.2f}\n")
+            f.write(f"- MAE: ${metrica['MAE']:.2f}\n")
+            f.write(f"- MAPE: {metrica['MAPE']:.2f}%\n")
+            f.write(f"- R²: {metrica['R2']:.4f}\n\n")
+        
+        f.write("## Limitações e Considerações\n\n")
+        f.write("### Limitações do Modelo\n\n")
+        f.write("- O modelo não incorpora diretamente eventos geopolíticos ou econômicos futuros\n")
+        f.write("- A precisão diminui significativamente para horizontes de previsão mais longos\n")
+        f.write("- O modelo pode não capturar adequadamente choques de mercado extremos ou eventos inesperados\n\n")
+        
+        f.write("### Possíveis Melhorias\n\n")
+        f.write("- Incorporar variáveis exógenas como preços de outras commodities, taxas de câmbio, etc.\n")
+        f.write("- Experimentar arquiteturas mais complexas como modelos híbridos LSTM-CNN\n")
+        f.write("- Implementar técnicas de ensemble combinando múltiplos modelos\n")
+        f.write("- Adicionar mecanismos de atenção para melhorar a captura de dependências de longo prazo\n\n")
+        
+        f.write("## Uso do Modelo\n\n")
+        f.write("### Integração com o Dashboard\n\n")
+        f.write("O modelo está integrado ao dashboard interativo desenvolvido em Streamlit, permitindo:\n\n")
+        f.write("- Visualização das previsões para os próximos dias\n")
+        f.write("- Comparação com valores históricos\n")
+        f.write("- Análise de cenários\n\n")
+        
+        f.write("### Atualização do Modelo\n\n")
+        f.write("Recomenda-se atualizar o modelo periodicamente (mensalmente) para incorporar novos dados e manter a precisão das previsões.\n\n")
+        
+        f.write("## Conclusão\n\n")
+        f.write("O modelo LSTM desenvolvido oferece uma ferramenta valiosa para prever os preços do petróleo Brent no curto prazo. ")
+        f.write("Embora nenhum modelo possa prever com precisão perfeita os movimentos futuros dos preços, ")
+        f.write("especialmente em um mercado tão volátil e influenciado por fatores geopolíticos como o do petróleo, ")
+        f.write("as previsões geradas podem servir como um guia útil para tomada de decisões estratégicas e planejamento.\n\n")
+        
+        f.write("A combinação deste modelo com a análise dos insights históricos identificados no dashboard ")
+        f.write("proporciona uma visão mais completa e fundamentada do mercado de petróleo Brent.")
+    
+    print(f"Documentação do modelo criada em: {doc_path}")
+
+def main():
+    # Carregar os dados
+    df = carregar_dados()
+    
+    if df is None:
+        print("Não foi possível carregar os dados. Encerrando.")
+        return
+    
+    # Definir parâmetros do modelo
+    janela = 30  # Usar 30 dias anteriores para previsão
+    previsao_dias = 30  # Prever 30 dias à frente
+    
+    # Preparar os dados para o modelo
+    dados_preparados = preparar_dados_para_modelo(df, janela, previsao_dias)
+    
+    # Criar o modelo
+    modelo = criar_modelo_lstm(
+        input_shape=(dados_preparados['X_train'].shape[1], dados_preparados['X_train'].shape[2]),
+        previsao_dias=previsao_dias
+    )
+    
+    # Treinar o modelo
+    historico = treinar_modelo(modelo, dados_preparados)
+    
+    # Avaliar o modelo
+    resultados_avaliacao = avaliar_modelo(modelo, dados_preparados)
+    
+    # Fazer previsões futuras
+    previsoes_futuras = fazer_previsao_futura(modelo, dados_preparados)
+    
+    # Salvar o modelo e artefatos
+    salvar_modelo_e_artefatos(modelo, dados_preparados, resultados_avaliacao)
+    
+    # Criar documentação do modelo
+    criar_documentacao_modelo(dados_preparados, resultados_avaliacao)
+    
+    print("\nProcesso de criação e avaliação do modelo concluído com sucesso!")
+
+if __name__ == "__main__":
+    main()
